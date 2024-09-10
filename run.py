@@ -43,7 +43,6 @@ def run_job_as_process(job_name, job_args):
 
     if result.returncode == 0:
         logging.info(f"Execution of job {job_name} took {duration} seconds")
-        logging.info("Job output:\n", result.stdout)
     else:
         sys.exit(result.returncode)
 
