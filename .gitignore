@@ -274,5 +274,6 @@ spark-warehouse/
 # For data and output/
 data/*.csv
 output/*.csv
+awsglue/
 
 # End of https://www.toptal.com/developers/gitignore/api/spark,python
