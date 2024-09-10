@@ -1,3 +1,5 @@
+import sys
+
 from datetime import date
 from pyspark.sql import functions as F
 from pyspark.sql import DataFrame
@@ -191,6 +193,7 @@ def main():
 
     context_service.commit_job()
     spark.stop()
+    sys.exit(0)
 
 
 if __name__ == '__main__':
