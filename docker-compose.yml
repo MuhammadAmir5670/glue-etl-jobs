@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  aws-glue:
+    build: .
+    container_name: aws_glue_local
+    env_file:
+      - .env
+    ports:
+      - 4040:4040
+      - 18080:18080
+    volumes:
+      - ./:/home/glue_user/workspace/
+    entrypoint: tail -f /dev/null
+    tty: true
