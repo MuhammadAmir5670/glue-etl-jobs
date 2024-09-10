@@ -1,10 +1,9 @@
-import os
-
 from datetime import date
+
 from unittest.mock import patch, MagicMock
 
 from jobs.aggregate_patients_etl import split_name_column, extract_dob, extract_gender, process_patients_demographics
-from jobs.aggregate_patients_etl import main, process_conditions, process_attributions, process_measures
+from jobs.aggregate_patients_etl import process_patients, process_conditions, process_attributions, process_measures
 
 def test_split_name_column(sample_data_to_split_name_column):
     df = split_name_column(sample_data_to_split_name_column)
@@ -63,7 +62,7 @@ def test_process_conditions(sample_conditions):
     ]
     assert [row.asDict() for row in result] == expected
 
-def test_process_attributions(spark, sample_attributions):
+def test_process_attributions(sample_attributions):
     df = process_attributions(sample_attributions)
     result = df.select("PersonID", "last_pcp_visit_date", "insurance_pcp_npi", "next_pcp_visit_date").collect()
 
@@ -89,14 +88,16 @@ def test_process_measures(sample_measures):
 def test_main_etl_job(read_patients_dataset, sample_demographics, sample_conditions, sample_measures, sample_attributions):
     read_patients_dataset.return_value = (sample_demographics, sample_measures, sample_conditions, sample_attributions)
 
-    final_df = main(return_df=True)
+    current_date = date.today()
+    glue_context = MagicMock()
+    final_df = process_patients(glue_context, current_date)
 
     result = final_df.collect()
 
     expected_data = [
-        {'PersonID': '1', 'first_name': 'Doe', 'middle_name': None, 'last_name': 'John', 'date_of_birth': date(1980, 1, 1), 'gender': 'Male', 'problem_list': 'Z01.818 | H35.363', 'last_pcp_visit_date': date(2024, 8, 25), 'insurance_pcp_npi': 'NPI_1', 'next_pcp_visit_date': date(2024, 9, 15), 'care_gaps_list': 'Measure_1', 'deferred_care_gaps_list': 'Measure_2'},
-        {'PersonID': '2', 'first_name': 'Smith', 'middle_name': None, 'last_name': 'Jane', 'date_of_birth': date(1985, 5, 15), 'gender': 'Female', 'problem_list': 'E11.9 | I10', 'last_pcp_visit_date': date(2024, 7, 25), 'insurance_pcp_npi': 'NPI_2', 'next_pcp_visit_date': date(2024, 12, 10), 'care_gaps_list': 'Measure_3', 'deferred_care_gaps_list': 'Measure_4'},
-        {'PersonID': '3', 'first_name': None, 'middle_name': None, 'last_name': None, 'date_of_birth': date(1990, 8, 21), 'gender': 'Other', 'problem_list': None, 'last_pcp_visit_date': None, 'insurance_pcp_npi': None, 'next_pcp_visit_date': None, 'care_gaps_list': None, 'deferred_care_gaps_list': None}
+        {'mrn_in_primary_care_practice': '1', 'first_name': 'Doe', 'middle_name': None, 'last_name': 'John', 'date_of_birth': date(1980, 1, 1), 'gender': 'Male', 'problem_list': 'Z01.818 | H35.363', 'last_pcp_visit_date': date(2024, 8, 25), 'insurance_pcp_npi': 'NPI_1', 'next_pcp_visit_date': date(2024, 9, 15), 'care_gaps_list': 'Measure_1', 'deferred_care_gaps_list': 'Measure_2'},
+        {'mrn_in_primary_care_practice': '2', 'first_name': 'Smith', 'middle_name': None, 'last_name': 'Jane', 'date_of_birth': date(1985, 5, 15), 'gender': 'Female', 'problem_list': 'E11.9 | I10', 'last_pcp_visit_date': date(2024, 7, 25), 'insurance_pcp_npi': 'NPI_2', 'next_pcp_visit_date': date(2024, 12, 10), 'care_gaps_list': 'Measure_3', 'deferred_care_gaps_list': 'Measure_4'},
+        {'mrn_in_primary_care_practice': '3', 'first_name': None, 'middle_name': None, 'last_name': None, 'date_of_birth': date(1990, 8, 21), 'gender': 'Other', 'problem_list': None, 'last_pcp_visit_date': None, 'insurance_pcp_npi': None, 'next_pcp_visit_date': None, 'care_gaps_list': None, 'deferred_care_gaps_list': None}
     ]
 
     assert [row.asDict() for row in result] == expected_data

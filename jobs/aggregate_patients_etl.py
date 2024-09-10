@@ -1,18 +1,20 @@
+from datetime import date
 from pyspark.sql import functions as F
 from pyspark.sql import DataFrame
 
+from awsglue.context import GlueContext
+from utils.glue_helpers import ArgumentService, ContextService, read_from_glue_table, write_to_s3
 from utils.helpers import filter_out_missing_values, map_column_with_default, group_by_concat
-from utils.spark_session import create_spark_context
 
 
-def read_patients_dataset(spark):
+def read_patients_dataset(glue_context: GlueContext, date: date):
     """
-    Reads patient datasets from CSV files and returns them as DataFrames.
+    Reads patient datasets from aws glue catalog table files and returns them as DataFrames.
     """
-    patients_demographics = spark.read.csv("data/2023_11_29_012658_demographics_01.csv", header=True)
-    patients_measures = spark.read.csv("data/2023_11_29_012658_measures_01.csv", header=True)
-    patients_conditions = spark.read.csv("data/2023_11_29_012658_conditions_01.csv", header=True)
-    patients_attributions = spark.read.csv("data/2023_11_29_012658_attribution_01.csv", header=True)
+    patients_demographics = read_from_glue_table("patients", "demographics", glue_context, date)
+    patients_measures = read_from_glue_table("patients", "measures", glue_context, date)
+    patients_conditions = read_from_glue_table("patients", "conditions", glue_context, date)
+    patients_attributions = read_from_glue_table("patients", "attributions", glue_context, date)
 
     return patients_demographics, \
             patients_measures, \
@@ -156,14 +158,12 @@ def process_measures(measures):
 
     return care_gaps_list.join(deferred_care_gaps_list, on="PersonID")
 
-def main(return_df=False):
-    spark = create_spark_context(__file__)
-    spark.sql("set spark.sql.legacy.timeParserPolicy=LEGACY")
 
+def process_patients(glue_context, current_date):
     patients_demographics, \
     patients_measures, \
     patients_conditions, \
-    patients_attributions = read_patients_dataset(spark)
+    patients_attributions = read_patients_dataset(glue_context, current_date)
 
     patients_demographics = process_patients_demographics(patients_demographics)
     patients_risks = process_conditions(patients_conditions)
@@ -173,11 +173,24 @@ def main(return_df=False):
     final_df = patients_demographics.join(patients_risks, on="PersonID", how="left")
     final_df = final_df.join(patients_visits, on="PersonID", how="left")
     final_df = final_df.join(patients_measures, on="PersonID", how="left")
+    final_df = final_df.withColumnRenamed("PersonID", "mrn_in_primary_care_practice")
 
-    if return_df:
-        return final_df
+    return final_df
 
-    final_df.write.csv("./output/data.csv", mode="overwrite", header=True)
+def main():
+    argument_service = ArgumentService()
+    context_service = ContextService(argument_service)
+    glue_context, spark = context_service.glue_context, context_service.spark
+
+    spark.sql("set spark.sql.legacy.timeParserPolicy=LEGACY")
+
+    current_date = date(2023, 11, 29)
+    results = process_patients(glue_context, current_date)
+
+    write_to_s3(results, glue_context, argument_service.output_path, current_date)
+
+    context_service.commit_job()
+    spark.stop()
 
 
 if __name__ == '__main__':
