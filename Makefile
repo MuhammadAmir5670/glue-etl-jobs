@@ -6,6 +6,9 @@ JOB_ARGS ?= arg1=value1 arg2=value2
 run:
 	docker compose exec -it aws-glue python3 run.py --job $(JOB_NAME) --job-args $(JOB_ARGS)
 
+# TODO: support running test inside the container
+
+
 # Help target to display usage information
 help:
 	@echo "Usage:"
