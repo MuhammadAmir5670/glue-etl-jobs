@@ -119,9 +119,11 @@ def process_attributions(attributions):
         .withColumn("next_pcp_visit_date", date_exp("Next_Visit__dt"))
 
     # Group by PersonID to get the most recent last visit
-    patient_last_visits = patient_visits.groupBy("PersonID").agg(
-        F.max(F.struct("last_pcp_visit_date", "Provider_NPI")).alias("max_last_visit")
-    )
+    patient_last_visits = patient_visits \
+        .filter(F.col('last_pcp_visit_date') < date.today()) \
+        .groupBy("PersonID").agg(
+            F.max(F.struct("last_pcp_visit_date", "Provider_NPI")).alias("max_last_visit")
+        )
 
     # Extract the most recent last visit date and corresponding Provider_NPI
     patient_last_visits = patient_last_visits.select(
