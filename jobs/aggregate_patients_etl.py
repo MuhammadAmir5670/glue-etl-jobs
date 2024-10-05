@@ -133,9 +133,11 @@ def process_attributions(attributions):
     )
 
     # Group by PersonID to get the earliest next visit
-    patient_next_visits = patient_visits.groupBy("PersonID").agg(
-        F.min("next_pcp_visit_date").alias("next_pcp_visit_date")
-    )
+    patient_next_visits = patient_visits \
+        .filter(F.col("next_pcp_visit_date") > date.today()) \
+        .groupBy("PersonID").agg(
+            F.min("next_pcp_visit_date").alias("next_pcp_visit_date")
+        )
 
     return patient_last_visits.join(patient_next_visits, on="PersonID", how="outer")
 
@@ -188,7 +190,7 @@ def main():
 
     spark.sql("set spark.sql.legacy.timeParserPolicy=LEGACY")
 
-    current_date = date(2023, 11, 29)
+    current_date = date.today()
     results = process_patients(glue_context, current_date)
 
     write_to_s3(results, glue_context, argument_service.output_path, current_date)
